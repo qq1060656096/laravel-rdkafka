@@ -1,0 +1,11 @@
+{
+    "name": "qq1060656096/laravel-rdkafka",
+    "description": "The Laravel Rdkafka.",
+    "keywords": ["framework", "laravel-rdkafka"],
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "RdKafkaApp\\": "src/"
+        }
+    }
+}
