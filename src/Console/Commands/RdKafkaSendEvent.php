@@ -3,7 +3,6 @@
 namespace RdKafkaApp\Console\Commands;
 
 use RdKafkaApp\Helper\RdKafkaProducerHelper;
-use RdKafkaApp\Helper\SyncHelperTrait;
 use RdKafkaApp\WorkWechat\Events\Zntk\DhbToQywx;
 use Illuminate\Console\Command;
 
@@ -15,7 +14,6 @@ use Illuminate\Console\Command;
  */
 class RdKafkaSendEvent extends Command
 {
-    use SyncHelperTrait;
 
     /**
      * The name and signature of the console command.
