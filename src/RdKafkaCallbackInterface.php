@@ -1,9 +1,4 @@
 <?php
-namespace RdKafkaApp\Helper;
-
-use RdKafka\Producer;
-use RdKafka\ProducerTopic;
-use RdKafka\Conf;
 /**
  *
  * kafka错误日志
@@ -13,6 +8,13 @@ use RdKafka\Conf;
  * Date: 2018-08-18
  * Time: 11:51
  */
+
+namespace RdKafkaApp;
+
+use RdKafka\Producer;
+use RdKafka\ProducerTopic;
+use RdKafka\Conf;
+
 interface RdKafkaCallbackInterface
 {
     /**

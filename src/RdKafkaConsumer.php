@@ -7,7 +7,7 @@
  * Time: 07:59
  */
 
-namespace RdKafkaApp\Helper;
+namespace RdKafkaApp;
 
 use RdKafka\Conf;
 use RdKafka\TopicConf;
@@ -16,10 +16,10 @@ use RdKafka\KafkaConsumer;
 /**
  * php扩展消费者
  *
- * Class RdKafkaConsumerHelper
+ * Class RdKafkaConsumer
  * @package RdKafkaApp\Helper
  */
-class RdKafkaConsumerHelper
+class RdKafkaConsumer
 {
     /**
      * kafka消费者配置
@@ -67,7 +67,7 @@ class RdKafkaConsumerHelper
         $this->brokerList   = $brokerList;
         $this->topicList    = $topicList;
         $this->groupId      = $groupId;
-        $this->config = RdKafkaConfHelper::getNewConf($brokerList, $groupId, $options);;
+        $this->config = RdKafkaConf::getNewConf($brokerList, $groupId, $options);;
     }
 
     public function getConfig()

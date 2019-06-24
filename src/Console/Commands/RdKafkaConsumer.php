@@ -2,10 +2,9 @@
 
 namespace RdKafkaApp\Console\Commands;
 
-use RdKafkaApp\Exceptions\ConsumerEventConfigNotFoundException;
-use RdKafkaApp\Helper\RdKafkaProducerHelper;
-use RdKafkaApp\WorkWechat\Events\EventNameDefine;
 use Illuminate\Console\Command;
+use RdKafkaApp\Exceptions\ConsumerEventConfigNotFoundException;
+use RdKafkaApp\RdKafkaProducer;
 
 class RdKafkaConsumer extends Command
 {
@@ -14,8 +13,7 @@ class RdKafkaConsumer extends Command
      *
      * @var string
      */
-    protected $signature = 'rdkafka:consumer 
-                                        {client-id : 消费者id, 在配置文件中唯一}';
+    protected $signature = 'rdkafka:consumer {consumer_id : 消费者id, 在配置文件中唯一}';
 
     /**
      * The console command description.
@@ -28,7 +26,7 @@ class RdKafkaConsumer extends Command
      * 消费者客户端id, 唯一
      * @var string
      */
-    protected $clientId = '';
+    protected $consumerId = '';
 
     /**
      * 当前运行分组id
@@ -70,73 +68,71 @@ class RdKafkaConsumer extends Command
     public function handle()
     {
         // 获取消费者id
-        $clientId = $this->argument('client-id');
-
+        $consumerId = $this->argument('consumer_id');
         // 获取配置
-        $configKey = "kafka.client_list.{$clientId}";
+        $configKey = "kafka.consumer_list.{$consumerId}";
         // 获取指定队列事件列表
         $clientConfig = config($configKey);
         // 检查配置文件
         if ($clientConfig === null) {
-            $this->prettyError("kafka client_list(消费者列表)不存在 ?");
+            $this->prettyError("kafka consumer_list(消费者列表)不存在 ?");
         }
-        $this->clientConfig = $clientConfig;
+        $this->clientConfig    = $clientConfig;
         $this->eventListConfig = $this->clientConfig['event_list'];
-        $this->clientId     = $clientId;
-        $groupId            = $this->clientConfig['group_id'];
-        $this->groupId      = $groupId;
+        $this->consumerId      = $consumerId;
+        $this->groupId      = $this->clientConfig['group_id'];
         $brokerList         = $clientConfig['broker_list'];
         $topicList          = $this->clientConfig['topic_list'];
         $timeoutMs          = $this->clientConfig['timeout_ms'];// 单位毫秒
-        $kafkaOptions       = config('kafka.kafka-options');
-        // 异常格式化信息
-        $exceptionFormatStr = <<<str
+        $kafkaOptions       = $this->clientConfig['kafka_options'];
 
-
-    [data: %s]:
-     client-id: %s
-      group-id; %s
-    topic-name: %s
-    event-name; %s
-     event-raw: %s
-exception-code: %s
- exception-msg: %s
-%s
-str;
-        $obj        = new \RdKafkaApp\Helper\RdKafkaConsumerHelper($brokerList, $topicList, $this->groupId, $kafkaOptions);
+        $obj        = new \RdKafkaApp\RdKafkaConsumer($brokerList, $topicList, $this->groupId, $kafkaOptions);
         $consumer   = $obj->getConsumer();
         while (true) {
             $message = $consumer->consume($timeoutMs);
             switch ($message->err) {
                 case RD_KAFKA_RESP_ERR_NO_ERROR:
+                    $this->info('new-message: ' . date('Y-m-d H:i:s'));
+
                     $rawEventData = $message->payload;
-                    // 不是事件格式不处理
+
+                    // 消息为空
                     if (empty($rawEventData)) {
+                        $this->info('skip: message is empty');
                         break;
                     }
-                    var_dump("\n\n var_dump-message-payload:",$message->payload, "\n");
+
+                    $this->info('message-payload: ' . $message->payload);
                     $event = json_decode($rawEventData, true);
-                    // 不是事件格式不处理
+                    // 消息格式错误
                     if (!is_array($event)) {
+                        $this->info('skip: message is not an event');
                         break;
                     }
+
                     try {
-                        $bool   = $this->executeEvent($event);
+                        $bool = $this->executeEvent($event);
+
+                        $this->info('success');
                         // 处理成功
                         if ($bool !== false) {
                             // 事件广播
                             $this->eventBroadcast($event);
                         } else {// 处理失败
                         }
-                    } catch (\Exception $e) {// 异常处理
-                        echo sprintf($exceptionFormatStr, date('Y-m-d H:i:s'), $this->clientId, $this->groupId, $event['eventKey'], $event['eventKey'], json_encode($event), $e->getCode(), $e->getMessage(), $e->getTraceAsString());
+                    } catch (\Exception $e) {
+                        // 异常格式化信息: consumer_id|group_id|topic_name|exception_code|exception_msg|exception_string
+                        $exceptionFormatStr = "%s %s %s %s '%s' \n %s";
+
+                        $errorMessage = sprintf($exceptionFormatStr, $this->consumerId, $this->groupId, implode('|', $topicList), $e->getCode(), $e->getMessage(), $e->getTraceAsString());
+                        $this->error('failed: ' . $errorMessage);
                     }
                     break;
                 case RD_KAFKA_RESP_ERR__PARTITION_EOF:// 没有消息
-//                    echo "No more messages; will wait for more\n";
+                    //echo "No more messages; will wait for more\n";
                     break;
                 case RD_KAFKA_RESP_ERR__TIMED_OUT:// 超时
-//                    echo "Timed out\n";
+                    //echo "Timed out\n";
                     break;
                 default:
                     throw new \Exception($message->errstr(), $message->err);
@@ -158,7 +154,7 @@ str;
         if (!isset($this->eventListConfig[$eventKey])) {
             throw new ConsumerEventConfigNotFoundException(sprintf('kafka consumer not found event(%s) config', $eventKey));
         }
-        $staticFunc = $this->eventListConfig[$eventKey];
+        $staticFunc = $this->eventListConfig[$eventKey]['function'];
         return call_user_func_array($staticFunc, [$event]);
     }
 
@@ -193,17 +189,21 @@ str;
      */
     public function eventBroadcast(array $event, $broadcastEventSuffix = null) {
         $eventKey = $event['eventKey'];
-        $broadcastEventSuffix = $broadcastEventSuffix === null ? EventNameDefine::getEventSuccessSuffix() : $broadcastEventSuffix;
+        if( !$this->eventListConfig[$eventKey]['is_broadcast'] ){
+            return false;
+        }
+
+        $broadcastEventSuffix = $broadcastEventSuffix === null ? '_SUCCESS' : $broadcastEventSuffix;
         $broadcastEventSuffixLen = strlen($broadcastEventSuffix);
         $isBroadcastEvent = substr_compare($eventKey, $broadcastEventSuffix, -$broadcastEventSuffixLen) === 0;
         // 如果找到后缀，代表是广播事件
         if ($isBroadcastEvent) {
             return false;
         }
-        $successEventKey = EventNameDefine::getSuccessEventName($eventKey);
+        $successEventKey = $eventKey . '_SUCCESS';
         $event['time'] = time();
         // 不是广播事件, 才广播
-        RdKafkaProducerHelper::sendEventRaw($successEventKey, $event);
+        RdKafkaProducer::sendEventRaw($successEventKey, $event);
         return true;
     }
 

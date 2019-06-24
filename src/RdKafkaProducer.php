@@ -1,9 +1,4 @@
 <?php
-namespace RdKafkaApp\Helper;
-
-use RdKafka\Producer;
-use RdKafka\ProducerTopic;
-use RdKafka\Conf;
 /**
  * Created by PhpStorm.
  * Email: 1060656096@qq.com
@@ -11,7 +6,14 @@ use RdKafka\Conf;
  * Date: 2018-08-18
  * Time: 11:51
  */
-class RdKafkaProducerHelper
+
+namespace RdKafkaApp;
+
+use RdKafka\Producer;
+use RdKafka\ProducerTopic;
+use RdKafka\Conf;
+
+class RdKafkaProducer
 {
     /**
      * 生产者配置
@@ -46,7 +48,7 @@ class RdKafkaProducerHelper
     /**
      * 构造方法初始化
      *
-     * RdKafkaProducerHelper constructor.
+     * RdKafkaProducer constructor.
      * @param array $brokerList 生产者列表
      * @param string $groupId 分组
      * @param array $options kafka配置选项
@@ -54,7 +56,7 @@ class RdKafkaProducerHelper
     public function __construct(array $brokerList, $groupId, array $options = [])
     {
         $this->brokerList = $brokerList;
-        $this->config = RdKafkaConfHelper::getNewConf($brokerList, $groupId, $options);
+        $this->config = RdKafkaConf::getNewConf($brokerList, $groupId, $options);
 
         $rdkafkaCallback = new RdKafkaCallback();
         $this->config->setDrMsgCb(function($kafka, $message) use($rdkafkaCallback) {
@@ -123,7 +125,7 @@ class RdKafkaProducerHelper
 
     /**
      * 获取消费者实例
-     * @return RdKafkaProducerHelper|null
+     * @return RdKafkaProducer|null
      */
     public static function getInstance()
     {
@@ -131,10 +133,10 @@ class RdKafkaProducerHelper
         if ($obj !== null) {
             return $obj;
         }
-        $brokerLists    = config('kafka.broker-list');
-        $kafkaOptions   = config('kafka.kafka-options');
-        $groupId        = config('kafka.kafka-group_id');
-        $obj            = new RdKafkaProducerHelper($brokerLists, $groupId, $kafkaOptions);
+        $brokerLists = config('kafka.producer.broker_list');
+        $groupId     = config('kafka.producer.group_id');
+        $options     = config('kafka.producer.kafka_options');
+        $obj         = new RdKafkaProducer($brokerLists, $groupId, $options);
         return $obj;
     }
 
@@ -187,14 +189,14 @@ class RdKafkaProducerHelper
      * @param array $eventRaw 事件数据
      * @param integer|null $pollTimeMs 等待回调毫秒数,null不等待, 0 异步非阻塞, -1 堵塞
      * return null
-     * @see RdKafkaProducerHelper::s
+     * @see RdKafkaProducer::s
      */
     public static function sendEventRaw($eventKey, array $eventRaw, $pollTimeMs = null)
     {
         $eventRaw['eventKey'] = $eventKey;
         $key    = '';
         $event  = json_encode($eventRaw);
-        $topicList  = [config('kafka.zntk-topic')];
+        $topicList  = [config('kafka.producer.topic')];
         return self::sendMessage($topicList, $event, $key, $pollTimeMs);
     }
 

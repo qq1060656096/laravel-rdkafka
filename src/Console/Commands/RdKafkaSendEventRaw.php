@@ -2,9 +2,8 @@
 
 namespace RdKafkaApp\Console\Commands;
 
-use RdKafkaApp\Helper\RdKafkaProducerHelper;
-use RdKafkaApp\WorkWechat\Events\Zntk\DhbToQywx;
 use Illuminate\Console\Command;
+use RdKafkaApp\RdKafkaProducer;
 
 /**
  * 智能拓客初始化
@@ -62,9 +61,9 @@ class RdKafkaSendEventRaw extends Command
             }
             $this->error("json 格式错误");
         }
-        $ip = $ip = RdKafkaProducerHelper::getClientIp();
+        $ip = $ip = RdKafkaProducer::getClientIp();
         $event = [
-            'id'        => RdKafkaProducerHelper::getEventId($ip),
+            'id'        => RdKafkaProducer::getEventId($ip),
             'eventKey'  => $eventKey,
             'data'      => $eventData,
             'time'      => time(),
@@ -77,7 +76,7 @@ class RdKafkaSendEventRaw extends Command
             return null;
         }
 
-        RdKafkaProducerHelper::sendEvent($eventKey, $eventData);
+        RdKafkaProducer::sendEvent($eventKey, $eventData);
         $this->info("已发送{$eventKey}事件到kafka");
     }
 }

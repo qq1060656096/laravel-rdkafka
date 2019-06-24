@@ -2,9 +2,8 @@
 
 namespace RdKafkaApp\Console\Commands;
 
-use RdKafkaApp\Helper\RdKafkaProducerHelper;
-use RdKafkaApp\WorkWechat\Events\Zntk\DhbToQywx;
 use Illuminate\Console\Command;
+use RdKafkaApp\RdKafkaProducer;
 
 /**
  * 智能拓客初始化
@@ -45,6 +44,7 @@ class RdKafkaSendEvent extends Command
      */
     public function handle()
     {
+        // 录入事件名
         while (true) {
             $eventKey = $this->ask("请输入要发送的事件名");
             if ($eventKey) {
@@ -53,6 +53,7 @@ class RdKafkaSendEvent extends Command
             $this->error("输入的事件名错误");
         }
 
+        // 录入事件的数据
         $eventData = [];
         while (true) {
             $rowFieldName = $this->ask("请输入事件字段名");
@@ -63,9 +64,11 @@ class RdKafkaSendEvent extends Command
                 break;
             }
         }
-        $ip = $ip = RdKafkaProducerHelper::getClientIp();
+
+        // 确认发送事件数据
+        $ip = $ip = RdKafkaProducer::getClientIp();
         $event = [
-            'id'        => RdKafkaProducerHelper::getEventId($ip),
+            'id'        => RdKafkaProducer::getEventId($ip),
             'eventKey'  => $eventKey,
             'data'      => $eventData,
             'time'      => time(),
@@ -78,7 +81,7 @@ class RdKafkaSendEvent extends Command
             return null;
         }
 
-        RdKafkaProducerHelper::sendEvent($eventKey, $eventData);
+        RdKafkaProducer::sendEvent($eventKey, $eventData);
         $this->info("已发送{$eventKey}事件到kafka");
     }
 }
